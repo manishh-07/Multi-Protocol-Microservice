@@ -1,37 +1,37 @@
 import asyncio
 from fastapi import APIRouter, Request
-from fastapi.responses import StreamingResponse
+from fastapi.responses import StreamingResponse, JSONResponse
 from app.services.health_checker import HealthChecker
 from app.core.config import settings
 
 router = APIRouter()
 
-# REST Endpoint 
+# ---------------------------------------------------------
+# 1. SELF HEALTH CHECK (Safe for K8s Probes)
+# ---------------------------------------------------------
 @router.get("/health", status_code=200)
 async def get_health():
     """
-    Standard REST Health Check.
-    Returns 200 OK if service is alive.
+    Self Check: Returns 200 OK to tell K8s 'I am alive'.
+    Does NOT call Geo Service.
     """
-    result = HealthChecker.perform_check()
-    return result
+    return {"status": "operational", "service": "Health-Monitor"}
 
-# SSE Endpoint
+# ---------------------------------------------------------
+# 2. SSE Endpoint (Real Monitoring via gRPC)
+# ---------------------------------------------------------
 @router.get("/events")
 async def sse_stream(request: Request):
-    """
-    Server-Sent Events. Emits health status every 5 seconds.
-    """
     async def event_generator():
         while True:
             if await request.is_disconnected():
                 break
             
-            data = HealthChecker.perform_check()
-            # SSE format: "data: <payload>\n\n"
-            yield f"data: {data}\n\n"
+            # Call Geo Service via gRPC
+            # IMPORTANT: Added 'await' because perform_check is async
+            data = await HealthChecker.perform_check()
             
-            # Requirement: 5 seconds delay
+            yield f"data: {data}\n\n"
             await asyncio.sleep(settings.SSE_INTERVAL)
 
     return StreamingResponse(event_generator(), media_type="text/event-stream")
