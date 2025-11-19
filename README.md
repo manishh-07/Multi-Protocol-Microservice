@@ -1,20 +1,20 @@
-# Multi-Protocol Health Microservice (POC)
+# Multi-Protocol Health Microservice (Health Monitor)
 
-## 🚀 Overview
+## Overview
 
-This project is a Proof of Concept (POC) for a modern, high-performance microservice architecture used within the Eros Universe ecosystem. It demonstrates how to serve multiple communication protocols from a single application instance:
+This project is a Proof of Concept (POC) for a modern, high-performance microservice architecture used within the Eros Universe ecosystem. It functions as a **Central Health Monitor** that serves multiple communication protocols:
 
-1.  **REST API (FastAPI):** For standard external communication and Kubernetes Probes.
-2.  **gRPC (grpc.aio):** For high-speed, low-latency Backend-to-Backend (B2B) communication.
-3.  **SSE (Server-Sent Events):** For real-time status updates to the Frontend.
+1.  **REST API (FastAPI):** For standard self-health checks (Kubernetes Probes).
+2.  **gRPC (grpc.aio):** Acts as a **Client** to connect internally to Backend Services (like `EU-Geo`) for high-speed checks, and as a **Server** for upstream checks.
+3.  **SSE (Server-Sent Events):** Streams real-time status updates of downstream services (e.g., Geo) to the Frontend.
 
-## 🎯 Purpose
+## Purpose
 
-* **Standardization:** Provides a template for future microservices requiring mixed protocols.
-* **Resilience:** Implements graceful shutdown patterns to handle Kubernetes scaling events without dropping connections.
-* **Observability:** Exposes dedicated Liveness and Readiness probes for Kubernetes.
+* **Centralized Monitoring:** Polls internal services via gRPC and aggregates status.
+* **Resilience:** Implements "Graceful Degradation" — The Monitor stays alive even if target services are down.
+* **Real-Time Observability:** Pushes live health data to dashboards without polling.
 
-## 📂 Folder Structure
+## Folder Structure
 
 ```text
 eros-health-service/
@@ -26,22 +26,21 @@ eros-health-service/
 │   │   └── grpc/               # gRPC Servicers
 │   ├── core/                   # Config (Pydantic) & Settings
 │   ├── services/               # Business Logic Layer
+│   │   ├── __init__.py
+│   │   └── health_checker.py   # gRPC Client Logic (Calls EU-Geo)
 │   ├── protos/                 # Proto Source Files (.proto)
 │   └── generated/              # Auto-generated gRPC code (Ignored in Git)
 ├── Dockerfile                  # Multi-stage build
 ├── requirements.txt            # Python dependencies
 └── README.md
 ```
-
-### Prerequisites
+## Prerequisites
 ---
 - Python 3.11+
-
 - Docker
-
 - pip and virtualenv
 
-### Local Development Setup
+## Local Development Setup
 ---
 1. Environment Setup
 Create a virtual environment and install dependencies.
@@ -52,25 +51,30 @@ python -m venv venv
 
 # Activate (Linux/Mac)
 source venv/bin/activate
-# Activate (Windows)
-# venv\Scripts\activate
 
 # Install dependencies
 pip install -r requirements.txt
 ```
-2. Environment Variables
+
+## Environment Variables
 Create a .env file in the root directory:
 
 ```ini, TOML
 APP_ENVIRONMENT=dev
+APP_DEBUG=True
+
+# Network Config
 REST_PORT=8080
 GRPC_PORT=50051
 SSE_INTERVAL=5
-APP_DEBUG=True
-```
-3. Generate gRPC Stubs (Crucial Step)
-Before running the app, you must generate the Python code from the .proto files.
 
+# Monitoring Target (Geo Service Address)
+# Format: <service-name>.<namespace>:<port>
+GEO_GRPC_TARGET=localhost:50051
+```
+
+## Generate gRPC Stubs (Crucial Step) 
+Before running the app, you must generate the Python code from the .proto files.
 ```bash
 # Run from the root directory
 python -m grpc_tools.protoc -I./app/protos --python_out=./app/generated --grpc_python_out=./app/generated app/protos/health.proto
@@ -78,64 +82,37 @@ python -m grpc_tools.protoc -I./app/protos --python_out=./app/generated --grpc_p
 # Fix relative import issue (Mac/Linux)
 sed -i 's/^import health_pb2/from . import health_pb2/' app/generated/health_pb2_grpc.py
 ```
-4. Run the Application
-```bash
+## Run the Application
+
+```Bash
 python -m app.main
 ```
 - REST Server starts on http://0.0.0.0:8080
-
 - gRPC Server starts on 0.0.0.0:50051
-
-### Docker Build & Run
 ---
-To verify the application in a containerized environment:
+## Testing & Verification
+Self Health Check (External/K8s) This endpoint checks if the Monitor App itself is running. It does not call downstream services.
 
-```bash
-# Build the image
-docker build -t health-poc:latest .
-
-# Run the container (Mapping both ports)
-docker run --rm -p 8080:8080 -p 50051:50051 health-poc:latest
-```
-
-### Testing & Verification
----
-1. **REST Health Check (External/K8s)**
-```bash
+```Bash
 curl http://localhost:8080/api/health-poc/health
 ```
-**Expected Response**: {"status":"operational","is_healthy":true...}
+- Expected Response: ```bash{"status":"operational", "service": "Health-Monitor"}```
 
-2. **Server-Sent Events (Frontend Real-time)**
-```bash
+Real-Time Monitoring (SSE) This endpoint connects to the Geo Service via gRPC and streams its status.
+
+```Bash
 curl -N http://localhost:8080/api/health-poc/events
 ```
-**Expected Response**: Continuous stream of data every 5 seconds.
 
-3. **gRPC Check (Internal Backend)**
-You can use a python script or grpcurl to test the socket connection.
-
-**Python Socket Test:**
-
-```python
-import socket
-sock = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
-result = sock.connect_ex(('localhost', 50051))
-print("Port Open" if result == 0 else "Port Closed")
-sock.close()
+- Expected Response:
+```bash
+data: {
+  "monitor_target": "EU-Geo Service",
+  "status": "operational",
+  "remote_component": "EU-Geo-Service",
+  "connection": "gRPC Connected"
+}
 ```
-### Deployment (Helm)
-* This project is deployed via ArgoCD using the charts-rest-grpc-sse Helm chart.
+gRPC Port Check (Internal Backend) Verifies that this service is also reachable via gRPC.
 
-* Key Configuration (values.yaml):
-
-    - Service: Exposes ports 8080 (http) and 50051 (grpc).
-
-    - Gateway: Configured with HTTPRoute on path /api/health-poc.
-
-    - Probes: Custom paths set to /api/health-poc/health.
-
-    ```bash
-    # Example internal DNS usage (from another pod)
-    curl http://charts-rest-grpc-sse-test.charts-rest-grpc-sse-test:8080/api/health-poc/health
-    ```
+---

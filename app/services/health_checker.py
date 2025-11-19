@@ -41,7 +41,6 @@ class HealthChecker:
                 "connection": "Failed "
             }
         except Exception as e:
-            # Handle other errors
             return {
                 "monitor_target": "EU-Geo Service",
                 "status": "Error",
