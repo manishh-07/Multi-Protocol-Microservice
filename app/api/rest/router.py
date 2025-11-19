@@ -6,9 +6,6 @@ from app.core.config import settings
 
 router = APIRouter()
 
-# ---------------------------------------------------------
-# 1. SELF HEALTH CHECK (Safe for K8s Probes)
-# ---------------------------------------------------------
 @router.get("/health", status_code=200)
 async def get_health():
     """
@@ -17,9 +14,7 @@ async def get_health():
     """
     return {"status": "operational", "service": "Health-Monitor"}
 
-# ---------------------------------------------------------
-# 2. SSE Endpoint (Real Monitoring via gRPC)
-# ---------------------------------------------------------
+
 @router.get("/events")
 async def sse_stream(request: Request):
     async def event_generator():
