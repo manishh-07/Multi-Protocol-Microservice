@@ -1,0 +1,55 @@
+# Byte-compiled / optimized / DLL files
+__pycache__/
+*.py[cod]
+*$py.class
+
+# Virtual Environment
+venv/
+.venv/
+env/
+
+# Environment Variables (Never push secrets!)
+.env
+.env.*
+
+# Distribution / Packaging
+build/
+develop-eggs/
+dist/
+downloads/
+eggs/
+.eggs/
+lib/
+lib64/
+parts/
+sdist/
+var/
+wheels/
+*.egg-info/
+.installed.cfg
+*.egg
+
+# gRPC Generated Files
+# We usually ignore these and generate them during Build/CI to ensure freshness
+app/generated/*_pb2.py
+app/generated/*_pb2_grpc.py
+# Keep the init file so the folder exists
+!app/generated/__init__.py
+
+# IDE Settings
+.idea/
+.vscode/
+*.swp
+*.swo
+
+# Testing and Coverage
+.coverage
+htmlcov/
+.pytest_cache/
+
+# Docker
+docker-compose.override.yml
+
+# OS Generated
+.DS_Store
+Thumbs.db

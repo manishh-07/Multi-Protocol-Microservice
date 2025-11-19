@@ -1,0 +1,16 @@
+syntax = "proto3";
+
+package health;
+
+service HealthService {
+  rpc Check(HealthRequest) returns (HealthResponse);
+}
+
+message HealthRequest {
+  string service_name = 1;
+}
+
+message HealthResponse {
+  string status = 1;
+  bool is_healthy = 2;
+}
