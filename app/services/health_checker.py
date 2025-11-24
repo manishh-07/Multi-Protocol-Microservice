@@ -16,35 +16,14 @@ class HealthChecker:
             async with grpc.aio.insecure_channel(target) as channel:
                 stub = health_pb2_grpc.HealthServiceStub(channel)
                 
-                # Call the Check method on Geo Service
                 response = await stub.Check(
                     health_pb2.HealthRequest(service_name="Health-Monitor-App"),
                     timeout=2
                 )
                 
-                return {
-                    "monitor_target": "EU-Geo Service",
-                    "status": response.status,       # Should be "operational"
-                    "is_healthy": response.is_healthy,
-                    "remote_component": response.component, # Should be "EU-Geo-Service"
-                    "connection": "gRPC Connected "
-                }
+                return {"monitor_target": "EU-Geo Service","status": response.status,"is_healthy": response.is_healthy,"remote_component": response.component,"connection": "gRPC Connected "}
                 
         except grpc.RpcError as e:
-            # Handle gRPC specific errors (like connection refused)
-            return {
-                "monitor_target": "EU-Geo Service",
-                "status": "Down",
-                "is_healthy": False,
-                "error": str(e.code()),
-                "details": e.details(),
-                "connection": "Failed "
-            }
+            return {"monitor_target": "EU-Geo Service","status": "Down","is_healthy": False,"error": str(e.code()),"details": e.details(),"connection": "Failed "}
         except Exception as e:
-            return {
-                "monitor_target": "EU-Geo Service",
-                "status": "Error",
-                "is_healthy": False,
-                "error": str(e),
-                "connection": "Failed "
-            }
+            return {"monitor_target": "EU-Geo Service","status": "Error","is_healthy": False,"error": str(e),"connection": "Failed "}

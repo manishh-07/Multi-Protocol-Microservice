@@ -1,4 +1,5 @@
 import asyncio
+import json
 from fastapi import APIRouter, Request
 from fastapi.responses import StreamingResponse, JSONResponse
 from app.services.health_checker import HealthChecker
@@ -10,10 +11,8 @@ router = APIRouter()
 async def get_health():
     """
     Self Check: Returns 200 OK to tell K8s 'I am alive'.
-    Does NOT call Geo Service.
     """
     return {"status": "operational", "service": "Health-Monitor"}
-
 
 @router.get("/events")
 async def sse_stream(request: Request):
@@ -22,11 +21,9 @@ async def sse_stream(request: Request):
             if await request.is_disconnected():
                 break
             
-            # Call Geo Service via gRPC
-            # IMPORTANT: Added 'await' because perform_check is async
             data = await HealthChecker.perform_check()
+            yield f"data: {json.dumps(data)}\n\n"
             
-            yield f"data: {data}\n\n"
             await asyncio.sleep(settings.SSE_INTERVAL)
 
     return StreamingResponse(event_generator(), media_type="text/event-stream")

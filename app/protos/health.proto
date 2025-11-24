@@ -12,6 +12,5 @@ message HealthRequest {
 message HealthResponse {
   string status = 1;
   bool is_healthy = 2;
-  
   string component = 3; 
 }
